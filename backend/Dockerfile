@@ -13,6 +13,7 @@ WORKDIR /build
 # 先只拷 pom 并预拉依赖：源码改动时这一层的缓存不会失效，重建快很多。
 # 后面接 `|| true` 是因为 dependency:go-offline 偶尔会因某个插件的元数据解析失败而报错，
 # 而它只是加速手段——真正的构建会补齐缺的依赖，不该因为它挂掉整个镜像。
+COPY pom.xml .
 RUN mvn -B -ntp dependency:go-offline || true
 
 COPY src ./src
