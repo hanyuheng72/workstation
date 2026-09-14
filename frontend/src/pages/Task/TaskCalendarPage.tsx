@@ -24,14 +24,15 @@ export function TaskCalendarPage() {
   const [selected, setSelected] = useState(todayISO())
   const [busyId, setBusyId] = useState<number | null>(null)
 
-  const calendar = useAsync(() => taskApi.calendar(year, month), [year, month])
+  const calendar = useAsync(() => taskApi.calendar(year, month), [year, month], {
+    key: `task:calendar:${year}-${month}`,
+  })
 
   const lastDay = new Date(year, month, 0).getDate()
 
-  const dayItems = useAsync(
-    () => taskApi.range(selected, selected),
-    [selected],
-  )
+  const dayItems = useAsync(() => taskApi.range(selected, selected), [selected], {
+    key: `task:range:${selected}`,
+  })
 
   /** 日历格子按周一对齐：算出本月 1 号前面要空几格 */
   const leadingBlanks = useMemo(() => {

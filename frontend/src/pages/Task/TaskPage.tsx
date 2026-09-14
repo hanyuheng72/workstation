@@ -31,10 +31,11 @@ export function TaskPage() {
   const [editing, setEditing] = useState<TaskVO | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
 
-  const today = useAsync(() => taskApi.today(), [])
+  const today = useAsync(() => taskApi.today(), [], { key: 'task:today' })
   const longTerm = useAsync(
     () => (tab === 'LONG_TERM' ? taskApi.list('LONG_TERM') : Promise.resolve([] as TaskVO[])),
     [tab],
+    { key: `task:list:${tab}` },
   )
 
   const closeForm = () => {

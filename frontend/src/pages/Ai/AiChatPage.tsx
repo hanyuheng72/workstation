@@ -23,8 +23,8 @@ export function AiChatPage() {
   const showToast = useUiStore((state) => state.showToast)
   const [params, setParams] = useSearchParams()
 
-  const status = useAsync(() => aiApi.status(), [])
-  const conversations = useAsync(() => aiApi.conversations(), [])
+  const status = useAsync(() => aiApi.status(), [], { key: 'ai:status' })
+  const conversations = useAsync(() => aiApi.conversations(), [], { key: 'ai:conversations' })
 
   const [messages, setMessages] = useState<AiMessageVO[]>([])
   const [conversationId, setConversationId] = useState<number | null>(null)

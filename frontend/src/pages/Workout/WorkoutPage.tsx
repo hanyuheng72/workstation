@@ -14,7 +14,7 @@ type Tab = 'parts' | 'stats'
 
 export function WorkoutPage() {
   const [tab, setTab] = useState<Tab>('parts')
-  const parts = useAsync(() => workoutApi.parts(), [])
+  const parts = useAsync(() => workoutApi.parts(), [], { key: 'workout:parts' })
 
   return (
     <>

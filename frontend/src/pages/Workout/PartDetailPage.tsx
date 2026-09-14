@@ -19,9 +19,13 @@ export function PartDetailPage() {
   const [params, setParams] = useSearchParams()
   const showToast = useUiStore((state) => state.showToast)
 
-  const parts = useAsync(() => workoutApi.parts(), [])
-  const exercises = useAsync(() => workoutApi.exercises(id), [id])
-  const records = useAsync(() => workoutApi.records({ partId: id }), [id])
+  const parts = useAsync(() => workoutApi.parts(), [], { key: 'workout:parts' })
+  const exercises = useAsync(() => workoutApi.exercises(id), [id], {
+    key: `workout:exercises:${id}`,
+  })
+  const records = useAsync(() => workoutApi.records({ partId: id }), [id], {
+    key: `workout:records:part:${id}`,
+  })
 
   const [formOpen, setFormOpen] = useState(params.get('quick') === '1')
   const [active, setActive] = useState<ExerciseVO | null>(null)

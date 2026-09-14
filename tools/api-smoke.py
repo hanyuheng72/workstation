@@ -52,10 +52,19 @@ def check(label: str, condition: bool, detail: object = "") -> None:
 
 
 def read_password() -> str:
+    """
+    口令优先取环境变量，取不到才读本机 .env。
+
+    本地后端的口令在 backend/.env 里；云端（Render）用的是平台环境变量里
+    单独配的强口令，两边不一样，所以打云端时必须用环境变量传进来。
+    """
+    from_env = os.environ.get("APP_PASSWORD")
+    if from_env:
+        return from_env
     for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
         if line.startswith("APP_PASSWORD="):
             return line.split("=", 1)[1].strip()
-    raise SystemExit("backend/.env 里没有 APP_PASSWORD")
+    raise SystemExit("没有拿到口令：请设置 APP_PASSWORD 环境变量，或在 backend/.env 里配置")
 
 
 def call(method: str, path: str, body=None, token: str | None = None):

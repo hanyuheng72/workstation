@@ -22,7 +22,7 @@ type IconTone = 'primary' | 'success' | 'warning' | 'violet'
  */
 export function DashboardPage() {
   const showToast = useUiStore((state) => state.showToast)
-  const overview = useAsync(() => dashboardApi.overview(), [])
+  const overview = useAsync(() => dashboardApi.overview(), [], { key: 'dashboard:overview' })
   const [busyId, setBusyId] = useState<number | null>(null)
 
   const data = overview.data

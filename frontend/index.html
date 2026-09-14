@@ -9,12 +9,53 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="工作台" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <title>个人工作台</title>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+
+    <!--
+      打包成 App 之后打不开浏览器调试台，一旦出问题只能看到一片白，无从排查。
+      这段在脚本没加载到或没挂载成功时，把原因直接写在页面上。
+      它不依赖任何打包产物，所以自身永远能运行。
+    -->
+    <script>
+      ;(function () {
+        var reported = false
+
+        function show(title, detail) {
+          if (reported) return
+          reported = true
+          var el = document.getElementById('root')
+          if (!el) return
+          el.setAttribute(
+            'style',
+            'padding:24px;font:13px/1.7 ui-monospace,Menlo,Consolas,monospace;color:#c0392b;white-space:pre-wrap;word-break:break-all',
+          )
+          el.textContent = title + '\n\n' + detail + '\n\n页面地址：' + location.href
+        }
+
+        window.addEventListener('error', function (event) {
+          if (event.target && event.target.tagName === 'SCRIPT') {
+            show('脚本没能加载', '地址：' + (event.target.src || '(未知)'))
+            return
+          }
+          show('运行时出错', (event.message || '') + '\n' + (event.filename || ''))
+        })
+
+        // 脚本加载失败不一定会触发 error，所以再加一道兜底：
+        // 几秒后根节点仍然是空的，说明应用根本没挂载起来
+        window.setTimeout(function () {
+          var el = document.getElementById('root')
+          if (el && el.childElementCount === 0 && !reported) {
+            show('应用没能启动', '脚本已下载但没有渲染出内容，多半是资源路径不对。')
+          }
+        }, 5000)
+      })()
+    </script>
+
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

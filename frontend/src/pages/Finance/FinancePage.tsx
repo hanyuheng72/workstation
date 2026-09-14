@@ -25,8 +25,10 @@ export function FinancePage() {
 
   const [tab, setTab] = useState<Tab>('list')
   const [formOpen, setFormOpen] = useState(params.get('quick') === '1')
-  const overview = useAsync(() => financeStatsApi.overview(), [])
-  const transactions = useAsync(() => financeApi.transactions({ page: 1, size: 50 }), [])
+  const overview = useAsync(() => financeStatsApi.overview(), [], { key: 'finance:overview' })
+  const transactions = useAsync(() => financeApi.transactions({ page: 1, size: 50 }), [], {
+    key: 'finance:transactions:1:50',
+  })
 
   const closeForm = () => {
     setFormOpen(false)

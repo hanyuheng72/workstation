@@ -26,9 +26,11 @@ export function FinanceStatsSection() {
   // 默认看本月，可以往前翻；不允许翻到未来
   const [month, setMonth] = useState(currentMonth)
 
-  const categories = useAsync(() => financeStatsApi.category(pieType, month), [pieType, month])
-  const daily = useAsync(() => financeStatsApi.dailyTrend(), [])
-  const monthly = useAsync(() => financeStatsApi.monthlyTrend(), [])
+  const categories = useAsync(() => financeStatsApi.category(pieType, month), [pieType, month], {
+    key: `finance:category:${pieType}:${month}`,
+  })
+  const daily = useAsync(() => financeStatsApi.dailyTrend(), [], { key: 'finance:daily' })
+  const monthly = useAsync(() => financeStatsApi.monthlyTrend(), [], { key: 'finance:monthly' })
 
   const isCurrentMonth = month === currentMonth()
   const label = `${Number(month.split('-')[0])} 年 ${Number(month.split('-')[1])} 月`

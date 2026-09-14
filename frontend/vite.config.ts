@@ -5,6 +5,14 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  /*
+   * 资源用相对路径引用。
+   *
+   * 默认是绝对路径（/assets/xxx.js），浏览器里没问题，但打包成 App 之后
+   * 页面是从手机本地加载的，绝对路径会被解析到文件系统根目录——那里没有这些文件，
+   * 脚本加载不到，界面就是一片白。改成相对路径后，同源部署和套壳打包都能用。
+   */
+  base: './',
   plugins: [
     react(),
     tailwindcss(),

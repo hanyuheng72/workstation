@@ -29,7 +29,10 @@ export function FinanceForm({ open, onClose, onSaved }: FinanceFormProps) {
   const [error, setError] = useState<string | null>(null)
 
   // 分类按方向分开拉，切到收入时不会残留支出的选中项
-  const categories = useAsync(() => financeApi.categories(type), [type, open])
+  // 分类字典基本不变，缓存起来：再次打开表单时能立刻渲染出分类
+  const categories = useAsync(() => financeApi.categories(type), [type, open], {
+    key: `finance:categories:${type}`,
+  })
 
   useEffect(() => {
     if (!open) return

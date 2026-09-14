@@ -16,8 +16,8 @@ import { useUiStore } from '@/store/uiStore'
 export function AiSummaryCard() {
   const showToast = useUiStore((state) => state.showToast)
 
-  const status = useAsync(() => aiApi.status(), [])
-  const summary = useAsync(() => aiApi.todaySummary(), [])
+  const status = useAsync(() => aiApi.status(), [], { key: 'ai:status' })
+  const summary = useAsync(() => aiApi.todaySummary(), [], { key: 'ai:summary:today' })
   const [generating, setGenerating] = useState(false)
 
   const configured = status.data?.configured ?? false

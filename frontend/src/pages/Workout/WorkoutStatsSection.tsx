@@ -12,8 +12,10 @@ import { formatMonthDay, trimNumber } from '@/utils/format'
 export function WorkoutStatsSection() {
   const [granularity, setGranularity] = useState<FrequencyGranularity>('week')
 
-  const frequency = useAsync(() => workoutStatsApi.frequency(granularity), [granularity])
-  const prs = useAsync(() => workoutStatsApi.personalBests(), [])
+  const frequency = useAsync(() => workoutStatsApi.frequency(granularity), [granularity], {
+    key: `workout:frequency:${granularity}`,
+  })
+  const prs = useAsync(() => workoutStatsApi.personalBests(), [], { key: 'workout:pr' })
 
   const stats = frequency.data
   const hasSessions = stats ? stats.sessions.some((point) => point.value > 0) : false

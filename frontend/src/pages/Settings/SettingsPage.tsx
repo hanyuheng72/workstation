@@ -18,7 +18,7 @@ export function SettingsPage() {
   const authRequired = useAuthStore((state) => state.authRequired)
   const showToast = useUiStore((state) => state.showToast)
 
-  const profile = useAsync(() => profileApi.get(), [])
+  const profile = useAsync(() => profileApi.get(), [], { key: 'profile' })
 
   const [nickname, setNickname] = useState('')
   const [height, setHeight] = useState('')

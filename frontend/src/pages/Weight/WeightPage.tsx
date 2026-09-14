@@ -38,10 +38,12 @@ export function WeightPage() {
   const [editing, setEditing] = useState<WeightVO | null>(null)
   const [granularity, setGranularity] = useState<WeightGranularity>('day')
 
-  const list = useAsync(() => weightApi.list(), [])
-  const stats = useAsync(() => weightApi.stats(), [])
-  const trend = useAsync(() => weightApi.trend(granularity), [granularity])
-  const bmi = useAsync(() => weightApi.bmi(), [])
+  const list = useAsync(() => weightApi.list(), [], { key: 'weight:list' })
+  const stats = useAsync(() => weightApi.stats(), [], { key: 'weight:stats' })
+  const trend = useAsync(() => weightApi.trend(granularity), [granularity], {
+    key: `weight:trend:${granularity}`,
+  })
+  const bmi = useAsync(() => weightApi.bmi(), [], { key: 'weight:bmi' })
 
   const reloadAll = () => {
     list.reload()

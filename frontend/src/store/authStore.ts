@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api } from '@/api/client'
 import { authApi } from '@/api/auth'
+import { clearAsyncCache } from '@/hooks/useAsync'
 import type { LoginResponse } from '@/types/api'
 
 const STORAGE_KEY = 'workstation.auth'
@@ -73,6 +74,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     writeStored(null)
+    // 缓存里是上一个登录态的数据，不清掉的话下一个进来会先看到别人的记录
+    clearAsyncCache()
     set({ token: null, status: 'anonymous' })
   },
 
