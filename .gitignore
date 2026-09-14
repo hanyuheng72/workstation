@@ -1,0 +1,29 @@
+# ---- 后端 ----
+backend/target/
+backend/.env
+
+# ---- 前端 ----
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/dev-dist/
+
+# ---- 前端构建产物会被复制到后端静态目录，不纳入版本库 ----
+backend/src/main/resources/static/
+
+# ---- 证书与密钥 ----
+*.p12
+*.pem
+*.key
+certs/
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ---- 日志 ----
+*.log
+logs/

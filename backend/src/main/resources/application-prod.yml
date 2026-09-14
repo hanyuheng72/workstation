@@ -1,0 +1,27 @@
+# 云部署（Render / Railway / 任意 Docker 环境）
+#
+# 这个 profile 与 dev 的差别只有三处：日志更安静、SQL 不打印、登录默认打开。
+# 其余全部走环境变量，所以在云平台上不需要 .env 文件——
+# DotenvLoader 找不到 .env 时会自动回落到真实环境变量。
+#
+# 部署前请确认下面这些环境变量已经配好（值不要写进仓库）：
+#   DB_URL / DB_USERNAME / DB_PASSWORD
+#   APP_PASSWORD / JWT_SECRET
+#   DEEPSEEK_API_KEY
+#   CORS_ALLOWED_ORIGINS（打包成 App 时需要）
+
+spring:
+  datasource:
+    hikari:
+      pool-name: workstation-cloud
+      # 云数据库（Aiven 等）网络延迟比本机高，超时放宽一点
+      connection-timeout: 20000
+      maximum-pool-size: 6
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+logging:
+  level:
+    com.workstation: INFO

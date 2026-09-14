@@ -1,0 +1,62 @@
+server:
+  # SERVER_PORT 优先；云平台（Render / Railway 等）会注入 PORT，所以也认它。
+  # 本机开发时两个都没有，落到 8080。
+  port: ${SERVER_PORT:${PORT:8080}}
+
+spring:
+  application:
+    name: workstation
+  profiles:
+    active: dev
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 2
+      connection-timeout: 10000
+  # 表结构由 db/schema.sql 手工执行，DDL 显式可控，不交给框架自动建表
+  sql:
+    init:
+      mode: never
+  jackson:
+    default-property-inclusion: always
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+app:
+  auth:
+    # 关掉之后接口不再要求令牌，前端直接进入。
+    # 默认 true：漏配时宁可多要一次口令，也不要无声地敞开。
+    enabled: ${APP_AUTH_ENABLED:true}
+    # 登录口令。留空则登录接口一律拒绝，避免误配置成无口令可进
+    password: ${APP_PASSWORD:}
+    jwt-secret: ${JWT_SECRET:}
+    jwt-expire-days: ${JWT_EXPIRE_DAYS:30}
+  deepseek:
+    # 只允许在后端读取；任何接口与日志都不得输出该值
+    api-key: ${DEEPSEEK_API_KEY:}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+  cors:
+    # 逗号分隔。打包成 App 之后，WebView 发出的请求带的是 null 来源，
+    # 那种情况需要在生产配置里显式放开（见 application-prod.yml 的说明）。
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

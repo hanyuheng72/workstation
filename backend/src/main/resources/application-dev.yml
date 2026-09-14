@@ -1,0 +1,14 @@
+# 本地开发：HTTP 8080，前端 Vite 开发服务器代理 /api 过来
+spring:
+  datasource:
+    hikari:
+      pool-name: workstation-dev
+
+mybatis-plus:
+  configuration:
+    # 开发期打印 SQL，便于核对学生成的统计语句
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    com.workstation: DEBUG

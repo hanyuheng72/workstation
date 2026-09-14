@@ -1,0 +1,226 @@
+@import 'tailwindcss';
+
+/* 深色模式走 .dark 类，由 store 切换；不是跟随系统的 prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * 轻拟物（soft neumorphism）。
+ *
+ * 核心规则只有一条：**凸起和凹陷的块，颜色和底色完全相同**，
+ * 立体感全部来自一明一暗两道光影。任何边框都会立刻破坏这个错觉，所以全站不用边框。
+ *
+ * 拟物最容易翻车的地方是对比度——块和底同色，一旦再把文字调浅就看不清了。
+ * 所以这里的墨色压得比常规浅色主题更深（#2E3849 对 #E9EDF3 约 9.6:1），
+ * 阴影的明暗差也拉得比"标准"拟物更大，保证在户外或低亮度屏幕上仍然分得清层次。
+ */
+
+:root {
+  /* 底色即面色：凸起块不另设背景色 */
+  --app-bg: #e9edf3;
+  --app-surface: #e9edf3;
+  --app-surface-2: #e4e9f0;
+
+  /* 光影的两端 */
+  --neu-light: rgba(255, 255, 255, 0.98);
+  --neu-dark: rgba(150, 165, 190, 0.6);
+
+  /* 凸起：左上受光、右下投影 */
+  --neu-raised: -5px -5px 12px var(--neu-light), 6px 6px 16px var(--neu-dark);
+  --neu-raised-sm: -3px -3px 7px var(--neu-light), 3px 3px 8px var(--neu-dark);
+  /* 给 60px 以下的小块用。同样的模糊半径套在小块上，
+     白色高光会沿边缘糊成一圈光晕，反而显得发虚。 */
+  --neu-raised-xs: -2px -2px 4px var(--neu-light), 2px 2px 5px var(--neu-dark);
+  --neu-raised-lg: -8px -8px 20px var(--neu-light), 10px 10px 26px var(--neu-dark);
+  /* 凹陷：光影方向反过来并内嵌。内侧左上沿是暗的、右下沿是亮的，
+     这样才读得出「按进去」而不是「浮起来」。 */
+  --neu-inset: inset 4px 4px 10px var(--neu-dark), inset -3px -3px 8px var(--neu-light);
+  --neu-inset-deep: inset 6px 6px 14px var(--neu-dark), inset -4px -4px 10px var(--neu-light);
+
+  --app-fg: #2e3849;
+  --app-fg-muted: #5c6879;
+  --app-fg-subtle: #8b95a6;
+
+  /* 列表行之间的极淡分隔线。拟物不用描边，但密集列表里仍需要一条提示线，
+     所以这里只做「比底色略深一点点」，绝不当边框用。 */
+  --app-line: rgba(150, 165, 190, 0.3);
+  --app-line-strong: rgba(150, 165, 190, 0.5);
+
+  /* 蓝色强调色。白字在其上约 5.4:1，作为正文大小的按钮底色也够 */
+  --app-primary: #2d63dd;
+  --app-primary-soft: #dde5fa;
+  --app-primary-fg: #ffffff;
+
+  --app-success: #0d8a5f;
+  --app-danger: #d02b39;
+  --app-warning: #b26a00;
+  /* 第四个色相，用来把首页四张卡区分开。只在图标上小面积使用，
+     不做大面积底色，否则拟物要的安静感就没了。 */
+  --app-violet: #6d4fd6;
+
+  /* 图表分类色，经过色觉障碍模拟校验 */
+  --app-viz-1: #2a78d6;
+  --app-viz-2: #eb6834;
+  --app-viz-3: #1baf7a;
+  --app-viz-4: #eda100;
+  --app-viz-5: #e87ba4;
+  --app-viz-6: #008300;
+  --app-viz-other: #b9c1ce;
+  --app-viz-grid: #d8dee8;
+  --app-viz-axis: #c2cad8;
+
+  /* BMI 分级的状态色，深浅模式共用 */
+  --app-status-good: #0ca30c;
+  --app-status-warning: #fab219;
+  --app-status-serious: #ec835a;
+  --app-status-critical: #d03b3b;
+}
+
+.dark {
+  --app-bg: #1e232c;
+  --app-surface: #1e232c;
+  --app-surface-2: #232932;
+
+  /* 深色拟物：亮边来自极淡的白，暗边来自更深的黑 */
+  --neu-light: rgba(255, 255, 255, 0.055);
+  --neu-dark: rgba(0, 0, 0, 0.6);
+
+  --app-fg: #e8ecf3;
+  --app-fg-muted: #a7b0c0;
+  --app-fg-subtle: #79828f;
+
+  --app-line: rgba(255, 255, 255, 0.09);
+  --app-line-strong: rgba(255, 255, 255, 0.16);
+
+  --app-primary: #5b8bf0;
+  --app-primary-soft: #26304a;
+  --app-primary-fg: #10141b;
+
+  --app-success: #34c79b;
+  --app-danger: #f26469;
+  --app-warning: #edb75c;
+  --app-violet: #9b86ee;
+
+  --app-viz-1: #3987e5;
+  --app-viz-2: #d95926;
+  --app-viz-3: #199e70;
+  --app-viz-4: #c98500;
+  --app-viz-5: #d55181;
+  --app-viz-6: #008300;
+  --app-viz-other: #4d5464;
+  --app-viz-grid: #2b323d;
+  --app-viz-axis: #39414f;
+}
+
+@theme inline {
+  --color-bg: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-2: var(--app-surface-2);
+  --color-fg: var(--app-fg);
+  --color-fg-muted: var(--app-fg-muted);
+  --color-fg-subtle: var(--app-fg-subtle);
+  --color-line: var(--app-line);
+  --color-line-strong: var(--app-line-strong);
+
+  --color-primary: var(--app-primary);
+  --color-primary-soft: var(--app-primary-soft);
+  --color-primary-fg: var(--app-primary-fg);
+
+  --color-success: var(--app-success);
+  --color-danger: var(--app-danger);
+  --color-warning: var(--app-warning);
+  --color-violet: var(--app-violet);
+
+  /* 拟物阴影接进 Tailwind，用 shadow-raised / shadow-inset 调用 */
+  --shadow-raised: var(--neu-raised);
+  --shadow-raised-sm: var(--neu-raised-sm);
+  --shadow-raised-xs: var(--neu-raised-xs);
+  --shadow-raised-lg: var(--neu-raised-lg);
+  --shadow-inset: var(--neu-inset);
+  --shadow-inset-deep: var(--neu-inset-deep);
+
+  --radius-panel: 1.5rem;
+  --radius-tile: 0.9375rem;
+  --radius-pill: 999px;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--app-bg);
+    color: var(--app-fg);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* 大字号收字距，读数才不显松散 */
+  .display {
+    letter-spacing: -0.022em;
+    line-height: 1.05;
+  }
+
+  /* 只在纵向对齐的数字列上用等宽字形 */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* iOS 上字号小于 16px 的输入框会触发自动放大 */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+
+  ::selection {
+    background: var(--app-primary);
+    color: var(--app-primary-fg);
+  }
+
+  /* 拟物全靠阴影，焦点环也做成"凹陷高亮"而不是描边 */
+  :focus-visible {
+    outline: 2px solid var(--app-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* 按下时从凸起变凹陷，是拟物最自然的反馈 */
+  .neu-pressable {
+    transition:
+      box-shadow 140ms ease,
+      transform 140ms ease;
+  }
+
+  .neu-pressable:active {
+    box-shadow: var(--neu-inset);
+    transform: translateY(1px);
+  }
+}
