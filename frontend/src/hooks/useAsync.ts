@@ -92,6 +92,23 @@ export function useAsync<T>(
 
   const reload = useCallback(() => setTick((value) => value + 1), [])
 
+  /*
+   * 从后台切回前台时重新拉一次。
+   *
+   * 这个 App 是整天开着的：手机锁屏放一夜，早上打开时如果什么都不做，
+   * 页面上还停着昨天的日期和昨天的「今日任务」。visibilitychange 是最省事的
+   * 触发点——用户真正看向屏幕的那一刻才发请求。
+   */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setTick((value) => value + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   /** 本地改动用它直接更新，省掉一次往返（列表里删一条之后就不用重拉整页） */
   const update = useCallback(
     (value: T) => {

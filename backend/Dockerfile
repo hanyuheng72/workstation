@@ -24,7 +24,10 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # 以非 root 运行。云平台的容器默认可写层很小，日志也走 stdout，不需要写权限
-RUN addgroup -S app && adduser -S app -G app
+#
+# tzdata 是给容器操作系统用的（让 date、日志时间戳跟着中国时区走）；
+# JVM 自己另有一份时区库，所以在 ENTRYPOINT 里还要单独指定 user.timezone。
+RUN apk add --no-cache tzdata && addgroup -S app && adduser -S app -G app
 # Spring Boot 打包后 target 下会同时有 xxx.jar 和 xxx.jar.original，
 # 但 *.jar 只匹配前者（后者以 .original 结尾），不会拷错。
 COPY --from=build /build/target/*.jar app.jar
@@ -33,8 +36,12 @@ USER app
 
 # 云平台上由平台注入 PORT；本地 docker run 时用 8080
 ENV SPRING_PROFILES_ACTIVE=prod
+# 容器默认是 UTC。不设时区的话 Java 里的 LocalDate.now() / LocalTime.now()
+# 全部按 UTC 算，会导致「今日任务」在北京时间凌晨到早上八点还停在前一天、
+# 记账时间差 8 小时。这里显式钉死，不依赖平台默认。
+ENV TZ=Asia/Shanghai
 EXPOSE 8080
 
 # 免费档容器内存通常只有 512MB，让 JVM 按容器可用内存的 75% 自己定堆大小，
 # 不写死 -Xmx，避免平台调整规格后又要改镜像。
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Shanghai", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-jar", "/app/app.jar"]
