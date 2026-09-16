@@ -25,10 +25,22 @@ ENV_FILE = ROOT / "backend" / ".env"
 
 
 def read_password() -> str:
+    """口令优先取环境变量，取不到才读本机 .env"""
+    from_env = os.environ.get("APP_PASSWORD")
+    if from_env:
+        return from_env
     for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
         if line.startswith("APP_PASSWORD="):
             return line.split("=", 1)[1].strip()
-    raise SystemExit("backend/.env 里没有 APP_PASSWORD")
+    raise SystemExit("没有拿到口令：请设置 APP_PASSWORD 环境变量，或在 backend/.env 里配置")
+
+
+def login() -> str | None:
+    """关掉登录的部署没有令牌可拿，此时返回 None"""
+    auth = call("GET", "/auth/status")
+    if not auth.get("data", {}).get("authRequired"):
+        return None
+    return fetch("POST", "/auth/login", {"password": read_password()})["token"]
 
 
 def call(method: str, path: str, body=None, token: str | None = None):
@@ -149,7 +161,7 @@ def seed(token: str) -> None:
     fetch("POST", "/tasks", {"title": "写周报", "taskType": "TODAY", "priority": 3}, token)
     fetch("POST", "/tasks", {"title": "整理实验数据", "taskType": "TODAY", "priority": 2}, token)
     fetch("POST", "/tasks", {"title": "背单词", "taskType": "TODAY", "recurrenceType": "DAILY"}, token)
-    fetch("POST", "/tasks", {"title": "每周复盘", "taskType": "WEEKLY", "recurrenceType": "WEEKLY"}, token)
+    fetch("POST", "/tasks", {"title": "每周复盘", "taskType": "TODAY", "recurrenceType": "WEEKLY"}, token)
     fetch("POST", "/tasks",
           {"title": "读完《设计数据密集型应用》", "taskType": "LONG_TERM",
            "dueDate": (today + timedelta(days=30)).isoformat()}, token)
@@ -167,7 +179,7 @@ def main() -> None:
     parser.add_argument("--yes", action="store_true", help="跳过清空前的确认")
     args = parser.parse_args()
 
-    token = fetch("POST", "/auth/login", {"password": read_password()})["token"]
+    token = login()
 
     if args.clean:
         # 清空是不可逆的，而库里现在可能有真实数据，所以默认要确认一次
