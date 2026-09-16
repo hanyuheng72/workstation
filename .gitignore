@@ -24,6 +24,11 @@ certs/
 .DS_Store
 Thumbs.db
 
+# ---- Claude Code 的本机配置 ----
+# settings.local.json 里是本机的权限白名单，含明文数据库口令与绝对路径，
+# 不该进版本库；launch.json 是可共享的开发服务器配置，保留跟踪。
+.claude/settings.local.json
+
 # ---- 日志 ----
 *.log
 logs/
