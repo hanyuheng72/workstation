@@ -148,9 +148,8 @@ export function DashboardPage() {
               to="/workout"
               icon={Dumbbell}
               iconTone="success"
-              label="训练"
-              value={trained ? '今日已训练' : '今日未训练'}
-              compact
+              label="今日训练"
+              value={trained ? '已训练' : '未训练'}
               valueTone={trained ? 'success' : undefined}
               hint={trained ? `${data.workout.exerciseCount} 个动作` : '去记一次'}
             />
@@ -192,7 +191,6 @@ function Metric({
   unit,
   hint,
   valueTone,
-  compact,
 }: {
   to: string
   icon: LucideIcon
@@ -205,8 +203,6 @@ function Metric({
   hint: string
   /** 数值本身的颜色，只用于「已训练」「超支」这类状态提示 */
   valueTone?: 'danger' | 'success'
-  /** 值是文字而非数字时用：字号要降一档，否则一行放不下 */
-  compact?: boolean
 }) {
   const empty = value === '—'
   const valueClass =
@@ -222,10 +218,11 @@ function Metric({
 
         <p className="mt-4 text-[11px] text-fg-subtle">{label}</p>
         {/*
-          数字、单位、状态文字分三种字号，但每类在所有卡片里保持一致：
-          数字 1.6rem，单位（kg / ¥）0.8rem 弱化，状态文字 1.15rem。
+          四张卡的字号统一：数字 1.6rem，单位（kg / ¥）0.8rem 弱化。
           之前把 ¥ 拼进数值字符串里，导致它在 1.6rem 下渲染成 25.6px，
           而 kg 只有 11px，四张卡看起来参差不齐。
+          「已训练」这类状态文字也用 1.6rem——它只有三个字，放得下；
+          写成「今日已训练」五个字就会在窄屏上溢出，所以「今日」放在标题里。
         */}
         <p className="mt-1 flex items-baseline gap-1">
           {/* 空值不能用大号加粗渲染：一个大破折号看起来像被涂黑的横杠 */}
@@ -237,11 +234,7 @@ function Metric({
                 <span className="text-[0.8rem] font-medium text-fg-subtle">{prefix}</span>
               ) : null}
               <span
-                className={cn(
-                  'display font-semibold',
-                  compact ? 'text-[1.15rem]' : 'text-[1.6rem]',
-                  valueClass,
-                )}
+                className={cn('display text-[1.6rem] font-semibold', valueClass)}
               >
                 {value}
               </span>
