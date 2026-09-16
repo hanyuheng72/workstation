@@ -13,12 +13,21 @@ import com.workstation.modules.ai.entity.AiMessage;
 import com.workstation.modules.ai.entity.AiRole;
 import com.workstation.modules.ai.mapper.AiConversationMapper;
 import com.workstation.modules.ai.mapper.AiMessageMapper;
+import com.workstation.modules.dashboard.DashboardService;
+import com.workstation.modules.finance.FinanceService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI 对话与「解析 → 草稿 → 确认 → 落库」这条链路。
@@ -26,23 +35,43 @@ import java.util.List;
 @Service
 public class AiChatService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiChatService.class);
+
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int TITLE_MAX = 30;
+    /** 带进提示词的最近几条对话，太多既费钱也没必要 */
+    private static final int HISTORY_LIMIT = 10;
 
     private final AiConversationMapper conversationMapper;
     private final AiMessageMapper messageMapper;
     private final IntentParser intentParser;
     private final ActionExecutor actionExecutor;
+    private final AiMemoryService memoryService;
+    private final DashboardService dashboardService;
+    private final FinanceService financeService;
     private final ObjectMapper objectMapper;
 
     public AiChatService(AiConversationMapper conversationMapper, AiMessageMapper messageMapper,
                          IntentParser intentParser, ActionExecutor actionExecutor,
-                         ObjectMapper objectMapper) {
+                         AiMemoryService memoryService, DashboardService dashboardService,
+                         FinanceService financeService, ObjectMapper objectMapper) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
         this.intentParser = intentParser;
         this.actionExecutor = actionExecutor;
+        this.memoryService = memoryService;
+        this.dashboardService = dashboardService;
+        this.financeService = financeService;
         this.objectMapper = objectMapper;
+    }
+
+    /** 今天的对话。记忆是永久的，但聊天上下文按天重置，不让昨天的话题拖到今天 */
+    public List<AiMessageVO> todayMessages() {
+        return messageMapper.selectList(
+                        Wrappers.lambdaQuery(AiMessage.class)
+                                .ge(AiMessage::getCreatedAt, LocalDate.now().atStartOfDay())
+                                .orderByAsc(AiMessage::getId))
+                .stream().map(this::toVO).toList();
     }
 
     public List<ConversationVO> listConversations() {
@@ -83,7 +112,8 @@ public class AiChatService {
         userMessage.setActionStatus(ActionStatus.NONE);
         messageMapper.insert(userMessage);
 
-        Parsed parsed = intentParser.parse(request.message());
+        Parsed parsed = intentParser.parse(
+                request.message(), todayHistory(), memoryService.describeForPrompt(), dataSnapshot());
 
         AiMessage assistantMessage = new AiMessage();
         assistantMessage.setConversationId(conversation.getId());
@@ -150,6 +180,47 @@ public class AiChatService {
     }
 
     // ---------------- 内部 ----------------
+
+    /**
+     * 今天已发生的对话，最近的排在后面。只取今天的：
+     * 记忆是长期的，但每天的闲聊不该拖成一条无限长的上下文。
+     */
+    private List<ChatMessage> todayHistory() {
+        List<AiMessage> recent = messageMapper.selectList(
+                Wrappers.lambdaQuery(AiMessage.class)
+                        .ge(AiMessage::getCreatedAt, LocalDate.now().atStartOfDay())
+                        .orderByDesc(AiMessage::getId)
+                        .last("LIMIT " + HISTORY_LIMIT));
+
+        List<ChatMessage> history = new ArrayList<>();
+        for (int index = recent.size() - 1; index >= 0; index--) {
+            AiMessage message = recent.get(index);
+            if (message.getRole() == AiRole.USER) {
+                history.add(ChatMessage.user(message.getContent()));
+            } else if (message.getRole() == AiRole.ASSISTANT) {
+                history.add(ChatMessage.assistant(message.getContent()));
+            }
+        }
+        return history;
+    }
+
+    /**
+     * 给助手看的数据上下文。
+     *
+     * 除了今天的快照，还带上上个月的收支——不然用户问「比上个月多花多少」时，
+     * 助手只能诚实地说看不到（实测就是这样）。
+     */
+    private String dataSnapshot() {
+        try {
+            Map<String, Object> context = new LinkedHashMap<>();
+            context.put("today", dashboardService.overview());
+            context.put("lastMonth", financeService.monthAmounts(YearMonth.now().minusMonths(1)));
+            return objectMapper.writeValueAsString(context);
+        } catch (Exception ex) {
+            log.warn("生成数据快照失败: {}", ex.getMessage());
+            return "（暂时取不到数据）";
+        }
+    }
 
     private AiConversation createConversation(String firstMessage) {
         AiConversation conversation = new AiConversation();

@@ -6,7 +6,8 @@
 --   本机：先跑 00-create-database.sql
 --   云上：在服务商控制台里建好库，再用 -D workstation 连过来跑本脚本
 --
--- 本脚本可重复执行（CREATE TABLE IF NOT EXISTS），不会影响其它数据库。
+-- 共 14 张表。本脚本可重复执行（CREATE TABLE IF NOT EXISTS），
+-- 已有表不会被改动也不会丢数据，所以升级版本时直接重跑本脚本即可补上新表。
 -- ============================================================
 
 USE `workstation`;
@@ -231,9 +232,27 @@ CREATE TABLE IF NOT EXISTS `ai_conversation` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI 会话';
 
 -- ------------------------------------------------------------
--- 13. ai_message — AI 消息（含意图草稿与确认状态）
+-- 13. ai_memory — AI 对我的画像记忆
+--     与 ai_message 的区别：消息是每天的对话流水，记忆是长期沉淀下来的、
+--     关于「我是谁」的事实与偏好。只有用户点过确认的才会写进来。
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `ai_memory` (
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
+    `content`    VARCHAR(500) NOT NULL COMMENT '一句话陈述，如「身高173cm，目标是增肌」',
+    `category`   VARCHAR(30)  NOT NULL DEFAULT 'OTHER'
+                 COMMENT 'PROFILE 基本资料 / GOAL 目标 / PREFERENCE 偏好 / HABIT 习惯 / OTHER',
+    `source`     VARCHAR(20)  NOT NULL DEFAULT 'CHAT' COMMENT 'CHAT 对话中提炼 / MANUAL 手动添加',
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_category` (`category`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI 长期记忆（画像）';
+
+-- ------------------------------------------------------------
+-- 14. ai_message — AI 消息（含意图草稿与确认状态）
 --     action_status 保证「解析 → 草稿 → 用户确认 → 落库」，
---     模型永远不直接改业务表。
+--     模型永远不直接改业务表。记忆的提议也走这条链路
+--     （intent = SAVE_MEMORY），所以不需要另造一套确认机制。
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ai_message` (
     `id`                  BIGINT      NOT NULL AUTO_INCREMENT,

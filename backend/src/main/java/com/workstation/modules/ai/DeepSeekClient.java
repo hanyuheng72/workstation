@@ -56,13 +56,22 @@ public class DeepSeekClient {
      * @param jsonMode 要求模型只输出 JSON 对象（DeepSeek 的 response_format）
      */
     public Completion complete(List<ChatMessage> messages, boolean jsonMode) {
+        return complete(messages, jsonMode, jsonMode ? 0.1 : 0.7);
+    }
+
+    /**
+     * @param temperature 采样温度。默认很低以保证输出稳定，但模型偶尔会退化成
+     *                    只吐一片空格——那种情况下必须换一个温度重试，否则同样的
+     *                    请求大概率得到同样的退化输出。
+     */
+    public Completion complete(List<ChatMessage> messages, boolean jsonMode, double temperature) {
         if (!isConfigured()) {
             throw new BusinessException(ErrorCode.AI_NOT_CONFIGURED);
         }
 
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", properties.model());
-        body.put("temperature", jsonMode ? 0.1 : 0.7);
+        body.put("temperature", temperature);
         body.put("max_tokens", 1200);
         body.put("stream", false);
 
@@ -101,7 +110,16 @@ public class DeepSeekClient {
             if (!choices.isArray() || choices.isEmpty()) {
                 throw new BusinessException(ErrorCode.AI_CALL_FAILED, "AI 没有返回内容");
             }
-            String content = choices.get(0).path("message").path("content").asText("");
+            JsonNode choice = choices.get(0);
+            String content = choice.path("message").path("content").asText("");
+            if (content.isBlank()) {
+                // 偶发退化：结构合法但正文为空。把 finish_reason 与用量一起记下来，
+                // 否则只能猜是超长、限流还是别的
+                log.warn("DeepSeek 返回空正文 finish_reason={} usage={} 完整响应={}",
+                        choice.path("finish_reason").asText(""),
+                        root.path("usage"),
+                        forLog(raw));
+            }
             JsonNode usage = root.path("usage");
             return new Completion(
                     content,
@@ -113,6 +131,19 @@ public class DeepSeekClient {
             log.warn("DeepSeek 响应解析失败: {}", ex.getMessage());
             throw new BusinessException(ErrorCode.AI_CALL_FAILED, "AI 返回的内容无法解析");
         }
+    }
+
+    /** 转义成纯 ASCII，日志不受控制台编码影响，也能反查原文 */
+    private static String forLog(String text) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            if (c >= 0x20 && c < 0x7F) {
+                sb.append(c);
+            } else {
+                sb.append(String.format("\\u%04x", (int) c));
+            }
+        }
+        return sb.toString();
     }
 
     public record Completion(String content, int promptTokens, int completionTokens) {

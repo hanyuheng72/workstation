@@ -377,3 +377,13 @@ export interface ConversationVO {
 export interface AnalysisVO {
   content: string
 }
+
+/** AI 对我的长期画像记忆。永久保留，只有我确认过的才会存进来 */
+export interface AiMemoryVO {
+  id: number
+  content: string
+  /** PROFILE 基本资料 / GOAL 目标 / PREFERENCE 偏好 / HABIT 习惯 / OTHER */
+  category: string
+  source: string
+  createdAt: string | null
+}

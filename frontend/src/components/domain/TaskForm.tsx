@@ -14,6 +14,8 @@ interface TaskFormProps {
   onSaved: () => void
   editing?: TaskVO | null
   defaultType?: TaskType
+  /** 新建时把任务落在哪一天。表单里没有日期选择，由调用方决定 */
+  defaultDate?: string
 }
 
 /**
@@ -24,7 +26,14 @@ interface TaskFormProps {
  * 后端把「字段为空」理解为「改成默认值」，不回传就会把任务悄悄挪到今天、
  * 或者把重复任务改成不重复。
  */
-export function TaskForm({ open, onClose, onSaved, editing, defaultType = 'TODAY' }: TaskFormProps) {
+export function TaskForm({
+  open,
+  onClose,
+  onSaved,
+  editing,
+  defaultType = 'TODAY',
+  defaultDate,
+}: TaskFormProps) {
   const showToast = useUiStore((state) => state.showToast)
 
   const [title, setTitle] = useState('')
@@ -52,9 +61,10 @@ export function TaskForm({ open, onClose, onSaved, editing, defaultType = 'TODAY
       description: description.trim() || null,
       taskType: type,
       priority: editing?.priority ?? 0,
-      // 新建时不传日期，后端补今天；编辑时把原日期带回去，避免挪到今天
-      planDate: editing?.planDate ?? null,
-      dueDate: editing?.dueDate ?? null,
+      // 新建时用调用方指定的日期（日历里选中的那天），没有就交给后端补今天；
+      // 编辑时把原日期带回去，避免任务被挪到今天
+      planDate: editing?.planDate ?? defaultDate ?? null,
+      dueDate: editing?.dueDate ?? (type === 'LONG_TERM' ? (defaultDate ?? null) : null),
       // 重复规则表单里不提供，但编辑时必须原样保留
       recurrenceType: editing?.recurrenceType ?? 'NONE',
       recurrenceInterval: editing?.recurrenceInterval ?? 1,

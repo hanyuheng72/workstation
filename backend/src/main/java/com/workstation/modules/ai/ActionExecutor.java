@@ -2,6 +2,7 @@ package com.workstation.modules.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.workstation.common.exception.BusinessException;
+import com.workstation.modules.ai.dto.AiMemoryVO;
 import com.workstation.modules.finance.FinanceService;
 import com.workstation.modules.finance.dto.CategoryVO;
 import com.workstation.modules.finance.dto.TransactionRequest;
@@ -42,13 +43,16 @@ public class ActionExecutor {
     private final WorkoutService workoutService;
     private final FinanceService financeService;
     private final TaskService taskService;
+    private final AiMemoryService memoryService;
 
     public ActionExecutor(WeightService weightService, WorkoutService workoutService,
-                          FinanceService financeService, TaskService taskService) {
+                          FinanceService financeService, TaskService taskService,
+                          AiMemoryService memoryService) {
         this.weightService = weightService;
         this.workoutService = workoutService;
         this.financeService = financeService;
         this.taskService = taskService;
+        this.memoryService = memoryService;
     }
 
     /**
@@ -89,6 +93,7 @@ public class ActionExecutor {
                         ? "" : "（重复）";
                 yield "任务「" + (title == null ? "未命名" : title) + "」" + suffix;
             }
+            case IntentParser.INTENT_MEMORY -> "记住：" + text(payload, "content");
             default -> "无法预览";
         };
     }
@@ -101,8 +106,22 @@ public class ActionExecutor {
             case IntentParser.INTENT_EXPENSE -> recordTransaction(payload, TransactionType.EXPENSE);
             case IntentParser.INTENT_INCOME -> recordTransaction(payload, TransactionType.INCOME);
             case IntentParser.INTENT_TASK -> createTask(payload);
+            case IntentParser.INTENT_MEMORY -> remember(payload);
             default -> throw BusinessException.badRequest("不认识这个动作：" + intent);
         };
+    }
+
+    /**
+     * 记下一条关于用户的长期信息。
+     * 与「记数据」共用同一套确认链路——模型只能提议，用户点过才会写进表里。
+     */
+    private ExecutedAction remember(JsonNode payload) {
+        String content = text(payload, "content");
+        if (content == null || content.isBlank()) {
+            throw BusinessException.badRequest("这条记忆没有内容");
+        }
+        AiMemoryVO saved = memoryService.add(content, text(payload, "category"), "CHAT");
+        return new ExecutedAction("MEMORY", saved.id(), "已记住：" + saved.content());
     }
 
     private ExecutedAction recordWeight(JsonNode payload) {

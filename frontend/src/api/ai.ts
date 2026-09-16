@@ -1,5 +1,6 @@
 import { api } from './client'
 import type {
+  AiMemoryVO,
   AiMessageVO,
   AiStatusVO,
   AiSummaryVO,
@@ -34,4 +35,16 @@ export const aiApi = {
 
   messages: (conversationId: number) =>
     api.get<AiMessageVO[]>(`/ai/conversations/${conversationId}/messages`),
+
+  /** 今天的对话。记忆是永久的，聊天上下文按天重置 */
+  todayMessages: () => api.get<AiMessageVO[]>('/ai/messages/today'),
+
+  // ---- 画像记忆 ----
+
+  memories: () => api.get<AiMemoryVO[]>('/ai/memories'),
+
+  addMemory: (content: string, category?: string) =>
+    api.post<AiMemoryVO>('/ai/memories', { content, category: category ?? 'OTHER' }),
+
+  removeMemory: (id: number) => api.delete<void>(`/ai/memories/${id}`),
 }

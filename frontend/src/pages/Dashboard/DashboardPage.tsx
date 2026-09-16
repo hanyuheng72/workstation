@@ -159,7 +159,8 @@ export function DashboardPage() {
               icon={Wallet}
               iconTone="warning"
               label="今日支出"
-              value={`¥${formatMoney(data.finance.todayExpense)}`}
+              prefix="¥"
+              value={formatMoney(data.finance.todayExpense)}
               hint={`本周 ¥${formatMoney(data.finance.weekExpense)}`}
             />
             <Metric
@@ -167,7 +168,8 @@ export function DashboardPage() {
               icon={Coins}
               iconTone="violet"
               label="本月结余"
-              value={`¥${formatMoney(data.finance.monthBalance)}`}
+              prefix="¥"
+              value={formatMoney(data.finance.monthBalance)}
               valueTone={data.finance.monthBalance < 0 ? 'danger' : undefined}
               hint={`收 ¥${formatMoney(data.finance.monthIncome)} · 支 ¥${formatMoney(data.finance.monthExpense)}`}
             />
@@ -186,6 +188,7 @@ function Metric({
   iconTone,
   label,
   value,
+  prefix,
   unit,
   hint,
   valueTone,
@@ -196,6 +199,8 @@ function Metric({
   iconTone: IconTone
   label: string
   value: string
+  /** 数值前的符号（如 ¥），按单位处理而不是拼进数值里 */
+  prefix?: string
   unit?: string
   hint: string
   /** 数值本身的颜色，只用于「已训练」「超支」这类状态提示 */
@@ -216,22 +221,33 @@ function Metric({
         <IconWell icon={icon} tone={iconTone} />
 
         <p className="mt-4 text-[11px] text-fg-subtle">{label}</p>
+        {/*
+          数字、单位、状态文字分三种字号，但每类在所有卡片里保持一致：
+          数字 1.6rem，单位（kg / ¥）0.8rem 弱化，状态文字 1.15rem。
+          之前把 ¥ 拼进数值字符串里，导致它在 1.6rem 下渲染成 25.6px，
+          而 kg 只有 11px，四张卡看起来参差不齐。
+        */}
         <p className="mt-1 flex items-baseline gap-1">
           {/* 空值不能用大号加粗渲染：一个大破折号看起来像被涂黑的横杠 */}
           {empty ? (
             <span className="text-lg text-fg-subtle">—</span>
           ) : (
-            <span
-              className={cn(
-                'display font-semibold',
-                compact ? 'text-[1.05rem]' : 'text-[1.6rem]',
-                valueClass,
-              )}
-            >
-              {value}
-            </span>
+            <>
+              {prefix ? (
+                <span className="text-[0.8rem] font-medium text-fg-subtle">{prefix}</span>
+              ) : null}
+              <span
+                className={cn(
+                  'display font-semibold',
+                  compact ? 'text-[1.15rem]' : 'text-[1.6rem]',
+                  valueClass,
+                )}
+              >
+                {value}
+              </span>
+            </>
           )}
-          {unit ? <span className="text-[11px] text-fg-subtle">{unit}</span> : null}
+          {unit ? <span className="text-[0.8rem] text-fg-subtle">{unit}</span> : null}
         </p>
 
         {/* 贴底，卡片高度被同行拉齐时不会在下方留一块死空间 */}

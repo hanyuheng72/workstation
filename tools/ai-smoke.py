@@ -43,10 +43,17 @@ def check(label: str, condition: bool, detail: object = "") -> None:
 
 
 def read_password() -> str:
+    """
+    口令优先取环境变量，取不到才读本机 .env。
+    云端用的是平台环境变量里单独配的强口令，与本地 .env 不同。
+    """
+    from_env = os.environ.get("APP_PASSWORD")
+    if from_env:
+        return from_env
     for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
         if line.startswith("APP_PASSWORD="):
             return line.split("=", 1)[1].strip()
-    raise SystemExit("backend/.env 里没有 APP_PASSWORD")
+    raise SystemExit("没有拿到口令：请设置 APP_PASSWORD 环境变量，或在 backend/.env 里配置")
 
 
 def call(method: str, path: str, body=None, token: str | None = None, timeout=120):
@@ -83,11 +90,15 @@ def weights_on(date_str: str, token: str) -> list:
 
 
 def main() -> None:
-    token = data_of("POST", "/auth/login", {"password": read_password()})["token"]
+    # 先问这个部署要不要登录：关掉登录时根本没有令牌可拿
+    auth = data_of("GET", "/auth/status", timeout=60)
+    token = data_of("POST", "/auth/login", {"password": read_password()})["token"] if auth["authRequired"] else None
+
     conversations: list[int] = []
     created_txns: list[int] = []
     created_weights: list[int] = []
     created_workouts: list[int] = []
+    memories: list[int] = []
 
     try:
         # ---------------- 配置状态 ----------------
@@ -220,6 +231,42 @@ def main() -> None:
         check("消息按时间正序",
               all(messages[i]["id"] <= messages[i + 1]["id"] for i in range(len(messages) - 1)))
 
+        # ---------------- 画像记忆 ----------------
+        print("\n== 画像记忆 ==")
+        check("初始没有记忆", len(data_of("GET", "/ai/memories", token=token)) == 0)
+
+        result = data_of("POST", "/ai/chat",
+                         {"message": "我身高173，最近在增肌，想练到70公斤"}, token, timeout=180)
+        conversations.append(result["conversationId"])
+        draft = result["assistantMessage"]
+
+        if draft["intent"] != "SAVE_MEMORY":
+            # 模型判断有波动，这里如实报告而不是伪造成通过
+            check("从这句里提炼出记忆提议（模型判断，可能波动）", False,
+                  f"intent={draft['intent']} reply={draft['content'][:60]}")
+        else:
+            check("★ 从聊天里提炼出记忆提议", True)
+            check("记忆处于待确认状态", draft["actionStatus"] == "PENDING", draft["actionStatus"])
+            check("给出了可读的记忆预览", bool(draft.get("draftPreview")), draft)
+            # 与记数据同样的硬约束：确认之前不许写库
+            check("★ 确认之前记忆没有入库",
+                  len(data_of("GET", "/ai/memories", token=token)) == 0)
+
+            rejected = data_of("POST", f"/ai/actions/{draft['id']}/reject", token=token)
+            check("拒绝后不写入", rejected["actionStatus"] == "REJECTED", rejected["actionStatus"])
+            check("★ 拒绝之后库里仍然没有记忆",
+                  len(data_of("GET", "/ai/memories", token=token)) == 0)
+
+        # 手动添加一条，然后验证它会被带进总结的提示词
+        added = data_of("POST", "/ai/memories",
+                        {"content": "身高 173cm，正在增肌", "category": "PROFILE"}, token)
+        memories.append(added["id"])
+        check("可以手动添加记忆", added["content"].startswith("身高"), added)
+
+        listed = data_of("GET", "/ai/memories", token=token)
+        check("记忆列表能读到", len(listed) == 1, listed)
+        check("记忆带分类", listed[0]["category"] == "PROFILE", listed[0])
+
         # ---------------- 每日总结 ----------------
         print("\n== 每日总结 ==")
         # 先清掉今天的缓存，才能验证 GET 确实不会顺带生成
@@ -247,6 +294,9 @@ def main() -> None:
             call("DELETE", f"/finance/transactions/{txn_id}", token=token)
         for weight_id in created_weights:
             call("DELETE", f"/weights/{weight_id}", token=token)
+        for memory_id in memories:
+            call("DELETE", f"/ai/memories/{memory_id}", token=token)
+        sql("DELETE FROM ai_memory WHERE source = 'CHAT';")
 
         # 会话与消息没有删除接口，直接清掉本次新建的
         removed = cleanup_conversations(conversations)

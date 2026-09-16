@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SplashScreen } from '@/components/ui/SplashScreen'
+import { TaskForm } from '@/components/domain/TaskForm'
 import { taskApi } from '@/api/task'
 import { useAsync } from '@/hooks/useAsync'
 import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/utils/cn'
 import { todayISO } from '@/utils/date'
 import { formatMonthDay, weekdayLabel } from '@/utils/format'
-import type { TaskOccurrenceVO } from '@/types/domain'
+import { occurrenceToTask } from '@/utils/task'
+import type { TaskOccurrenceVO, TaskVO } from '@/types/domain'
 
 const WEEKDAY_HEADERS = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -23,6 +25,8 @@ export function TaskCalendarPage() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [selected, setSelected] = useState(todayISO())
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<TaskVO | null>(null)
 
   const calendar = useAsync(() => taskApi.calendar(year, month), [year, month], {
     key: `task:calendar:${year}-${month}`,
@@ -176,26 +180,40 @@ export function TaskCalendarPage() {
         )}
       </Card>
 
-      <h2 className="mt-5 mb-2 px-1 text-sm font-medium text-fg-muted">
-        {selected === todayISO() ? '今天' : formatMonthDay(selected)}
-        <span className="ml-1.5 text-xs font-normal text-fg-subtle">
-          {weekdayLabel(selected)}
+      <h2 className="mt-5 mb-2 flex items-center justify-between px-1">
+        <span className="text-sm font-medium text-fg-muted">
+          {selected === todayISO() ? '今天' : formatMonthDay(selected)}
+          <span className="ml-1.5 text-xs font-normal text-fg-subtle">
+            {weekdayLabel(selected)}
+          </span>
         </span>
+        {/* 选中哪天就在哪天加任务，不用回列表页再改日期 */}
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(null)
+            setFormOpen(true)
+          }}
+          className="flex items-center gap-1 rounded-tile px-2.5 py-1.5 text-xs text-primary shadow-raised-sm neu-pressable"
+        >
+          <Plus size={13} />
+          加任务
+        </button>
       </h2>
 
       {dayItems.loading && !dayItems.data ? (
         <SplashScreen />
       ) : !dayItems.data || dayItems.data.length === 0 ? (
-        <EmptyState
-          title="这一天没有任务"
-          description="换一天看看，或到任务列表里添加。"
-        />
+        <EmptyState title="这一天没有任务" description="点上面的「加任务」直接加到这一天。" />
       ) : (
-        <Card className="divide-y divide-line">
-          {dayItems.data.map((item) => {
+        <Card className="overflow-hidden">
+          {dayItems.data.map((item, index) => {
             const done = item.status === 'DONE'
             return (
-              <div key={item.occurrenceId} className="flex items-center gap-3 px-4 py-3">
+              <div
+                key={item.occurrenceId}
+                className={cn('flex items-center gap-3 px-4 py-3', index > 0 && 'border-t border-line')}
+              >
                 <button
                   type="button"
                   aria-label={done ? '取消完成' : '标记完成'}
@@ -208,7 +226,14 @@ export function TaskCalendarPage() {
                 >
                   {done ? <span className="text-xs">✓</span> : null}
                 </button>
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => {
+                    setEditing(occurrenceToTask(item))
+                    setFormOpen(true)
+                  }}
+                >
                   <p className={cn('truncate text-sm', done && 'text-fg-subtle line-through')}>
                     {item.title}
                   </p>
@@ -216,12 +241,26 @@ export function TaskCalendarPage() {
                     {item.taskType === 'LONG_TERM' ? '长期' : '今日'}
                     {item.recurring ? ' · 重复' : ''}
                   </p>
-                </div>
+                </button>
               </div>
             )
           })}
         </Card>
       )}
+
+      <TaskForm
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false)
+          setEditing(null)
+        }}
+        onSaved={() => {
+          calendar.reload()
+          dayItems.reload()
+        }}
+        editing={editing}
+        defaultDate={selected}
+      />
     </>
   )
 }

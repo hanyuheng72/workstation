@@ -40,17 +40,20 @@ public class AiSummaryService {
     private final DashboardService dashboardService;
     private final FinanceStatsService financeStatsService;
     private final WorkoutStatsService workoutStatsService;
+    private final AiMemoryService memoryService;
     private final DeepSeekClient client;
     private final ObjectMapper objectMapper;
 
     public AiSummaryService(AiSummaryMapper summaryMapper, DashboardService dashboardService,
                             FinanceStatsService financeStatsService,
                             WorkoutStatsService workoutStatsService,
+                            AiMemoryService memoryService,
                             DeepSeekClient client, ObjectMapper objectMapper) {
         this.summaryMapper = summaryMapper;
         this.dashboardService = dashboardService;
         this.financeStatsService = financeStatsService;
         this.workoutStatsService = workoutStatsService;
+        this.memoryService = memoryService;
         this.client = client;
         this.objectMapper = objectMapper;
     }
@@ -84,10 +87,23 @@ public class AiSummaryService {
 
         DeepSeekClient.Completion completion = client.complete(List.of(
                 ChatMessage.system(SUMMARY_PROMPT),
-                ChatMessage.user(toJson(overview))), false);
+                ChatMessage.user(withMemories(toJson(overview)))), false);
 
         return save(today, completion.content().trim(), toJson(overview),
                 completion.promptTokens(), completion.completionTokens());
+    }
+
+    /**
+     * 把长期画像拼在数据前面。
+     * 有了它，总结才能说出「按你的增肌目标，今天蛋白质摄入可能不够」这种话，
+     * 而不是干巴巴地复述数字。
+     */
+    private String withMemories(String data) {
+        String memories = memoryService.describeForPrompt();
+        if (memories.isBlank()) {
+            return "## 今天的数据\n" + data;
+        }
+        return "## 关于用户的长期记忆\n" + memories + "\n## 今天的数据\n" + data;
     }
 
     /** 本月消费分析 */
@@ -103,7 +119,7 @@ public class AiSummaryService {
 
         DeepSeekClient.Completion completion = client.complete(List.of(
                 ChatMessage.system(EXPENSE_PROMPT),
-                ChatMessage.user(toJson(new ExpenseContext(categories, daily)))), false);
+                ChatMessage.user(withMemories(toJson(new ExpenseContext(categories, daily))))), false);
         return completion.content().trim();
     }
 
@@ -120,7 +136,7 @@ public class AiSummaryService {
 
         DeepSeekClient.Completion completion = client.complete(List.of(
                 ChatMessage.system(WORKOUT_PROMPT),
-                ChatMessage.user(toJson(new WorkoutContext(frequency, volume, prs)))), false);
+                ChatMessage.user(withMemories(toJson(new WorkoutContext(frequency, volume, prs))))), false);
         return completion.content().trim();
     }
 
@@ -190,15 +206,18 @@ public class AiSummaryService {
     }
 
     private static final String SUMMARY_PROMPT = """
-            你是「个人工作台」里的数据助手。用户会给你一份今天的 JSON 数据快照。
+            你是「个人工作台」里的数据助手。用户会给你一段文字，里面可能有两部分：
+            「关于用户的长期记忆」和「今天的数据」。
 
             请写一段中文总结，要求：
             1. 3 到 5 句，简洁自然，口语化，不要用 markdown 标题或列表符号。
             2. 只谈数据里**确实有**的方面；某个方面没有数据就完全不提，不要编造，也不要为了凑字数硬提。
             3. 指出一个值得注意的点，例如任务没做完、今天支出明显偏高、训练量在往上走。
-            4. 最后给一条具体、可执行的建议，不要泛泛而谈「继续保持」。
-            5. 不要把所有数字都复述一遍，挑重点说。
-            6. 直接输出总结正文，不要任何开场白。
+            4. 最后给一条具体、可执行的建议。**如果给了长期记忆，建议要结合它**——
+               例如记忆里写了增肌目标，就不要泛泛说「注意饮食」，而要说跟目标相关的事。
+            5. 不要罗列记忆本身，也不要提「根据你的记忆」这类话，把它当成你本来就知道的事。
+            6. 不要把所有数字都复述一遍，挑重点说。
+            7. 直接输出总结正文，不要任何开场白。
             """;
 
     private static final String EXPENSE_PROMPT = """

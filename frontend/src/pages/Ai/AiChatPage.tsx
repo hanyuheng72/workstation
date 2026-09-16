@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowUp, Bot, Check, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { ArrowUp, Bot, Brain, Check, Sparkles, TriangleAlert, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { SplashScreen } from '@/components/ui/SplashScreen'
 import { AiAnalysisCard } from '@/components/domain/AiAnalysisCard'
+import { AiMemorySheet } from '@/components/domain/AiMemorySheet'
 import { aiApi } from '@/api/ai'
 import { ApiError } from '@/api/client'
 import { useAsync } from '@/hooks/useAsync'
@@ -16,7 +17,7 @@ const EXAMPLES = [
   '我今天体重 65.3 公斤',
   '今天做了卧推，60 公斤，4 组，每组 10 次',
   '今天吃饭花了 35 元',
-  '提醒我每天背单词',
+  '我这个月花了多少钱？',
 ]
 
 export function AiChatPage() {
@@ -24,22 +25,22 @@ export function AiChatPage() {
   const [params, setParams] = useSearchParams()
 
   const status = useAsync(() => aiApi.status(), [], { key: 'ai:status' })
-  const conversations = useAsync(() => aiApi.conversations(), [], { key: 'ai:conversations' })
 
   const [messages, setMessages] = useState<AiMessageVO[]>([])
   const [conversationId, setConversationId] = useState<number | null>(null)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [memoryOpen, setMemoryOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // 接着最近一次会话继续聊，而不是每次进来都从零开始
+  // 只加载今天的对话：记忆是长期的，但每天的聊天不该拖成一条无限长的流水
   useEffect(() => {
-    const latest = conversations.data?.[0]
-    if (!latest || conversationId !== null) return
-    setConversationId(latest.id)
-    aiApi.messages(latest.id).then(setMessages).catch(() => setMessages([]))
-  }, [conversations.data, conversationId])
+    aiApi
+      .todayMessages()
+      .then(setMessages)
+      .catch(() => setMessages([]))
+  }, [])
 
   useEffect(() => {
     const preset = params.get('ask')
@@ -79,7 +80,7 @@ export function AiChatPage() {
       setMessages((prev) => prev.map((item) => (item.id === id ? updated : item)))
       if (confirm) {
         showToast(
-          updated.actionStatus === 'EXECUTED' ? '已记录' : '没能记录，请看提示',
+          updated.actionStatus === 'EXECUTED' ? '已完成' : '没能完成，请看提示',
           updated.actionStatus === 'EXECUTED' ? 'success' : 'danger',
         )
       }
@@ -98,15 +99,27 @@ export function AiChatPage() {
     <div className="flex min-h-[calc(100dvh-9rem)] flex-col">
       <PageHeader
         title="AI 助手"
-        subtitle={configured ? `用一句话记录，模型：${status.data?.model}` : '还没有配置 DeepSeek'}
+        subtitle={configured ? `用一句话记录，也能问我数据，模型：${status.data?.model}` : '还没有配置 DeepSeek'}
+        action={
+          configured ? (
+            <button
+              type="button"
+              onClick={() => setMemoryOpen(true)}
+              className="flex items-center gap-1.5 rounded-tile px-3 py-2 text-xs text-fg-muted shadow-raised-sm neu-pressable"
+            >
+              <Brain size={14} />
+              记忆
+            </button>
+          ) : null
+        }
       />
 
       {!configured ? (
         <Card className="p-4">
           <p className="text-sm font-medium">需要先配置 DeepSeek API Key</p>
           <p className="mt-2 text-sm text-fg-muted">
-            打开 <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">backend/.env</code>
-            ，把 <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">DEEPSEEK_API_KEY</code>{' '}
+            打开 <code className="rounded-tile bg-surface px-1.5 py-0.5 text-xs shadow-inset">backend/.env</code>
+            ，把 <code className="rounded-tile bg-surface px-1.5 py-0.5 text-xs shadow-inset">DEEPSEEK_API_KEY</code>{' '}
             填上，然后重启后端。
           </p>
           <p className="mt-2 text-xs text-fg-subtle">
@@ -128,7 +141,7 @@ export function AiChatPage() {
                 </div>
                 <p className="mb-3 text-sm text-fg-muted">
                   我会先解析成草稿，<span className="font-medium text-fg">你确认之后才会真正记录</span>
-                  ，不会擅自改你的数据。
+                  ，不会擅自改你的数据。也可以直接问我问题，我能看到你的数据。
                 </p>
                 <div className="flex flex-col gap-2">
                   {EXAMPLES.map((example) => (
@@ -195,6 +208,8 @@ export function AiChatPage() {
           </div>
         </>
       )}
+
+      <AiMemorySheet open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </div>
   )
 }
@@ -211,6 +226,8 @@ function MessageBubble({
   const isUser = message.role === 'USER'
   const pending = message.actionStatus === 'PENDING'
   const failed = message.actionStatus === 'FAILED'
+  // 记忆和「记数据」共用同一套确认链路，但文案要分开——用户要知道自己在同意什么
+  const isMemory = message.intent === 'SAVE_MEMORY'
 
   if (isUser) {
     return (
@@ -224,23 +241,26 @@ function MessageBubble({
 
   return (
     <div className="flex gap-2.5">
-      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-pill bg-primary-soft text-primary">
         <Bot size={15} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="whitespace-pre-wrap rounded-panel rounded-tl-md bg-surface shadow-raised-sm px-3.5 py-2.5 text-sm">
+        <div className="rounded-panel rounded-tl-md bg-surface px-3.5 py-2.5 text-sm whitespace-pre-wrap shadow-raised-sm">
           {message.content}
         </div>
 
-        {/* 待确认的草稿：确认之前不会动任何业务数据 */}
+        {/* 待确认的草稿：确认之前不会动任何数据 */}
         {pending && message.draftPreview ? (
-          <Card className="mt-2 border-primary/40 bg-primary-soft/40 p-3">
-            <p className="text-xs text-fg-muted">将要记录：</p>
+          <Card variant="inset" className="mt-2 p-3">
+            <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+              {isMemory ? <Brain size={12} /> : null}
+              {isMemory ? '要记住这条吗：' : '将要记录：'}
+            </p>
             <p className="mt-1 text-sm font-medium">{message.draftPreview}</p>
             <div className="mt-3 flex gap-2">
               <Button size="sm" loading={busy} onClick={() => onResolve(message.id, true)}>
                 <Check size={15} />
-                确认记录
+                {isMemory ? '记住' : '确认记录'}
               </Button>
               <Button
                 size="sm"
@@ -249,7 +269,7 @@ function MessageBubble({
                 onClick={() => onResolve(message.id, false)}
               >
                 <X size={15} />
-                不用了
+                {isMemory ? '不用了' : '不用了'}
               </Button>
             </div>
           </Card>
@@ -258,7 +278,7 @@ function MessageBubble({
         {failed ? (
           <p className="mt-1.5 flex items-center gap-1.5 text-xs text-warning">
             <TriangleAlert size={13} />
-            这条没能记录，改个说法再试一次
+            这条没能完成，改个说法再试一次
           </p>
         ) : null}
 

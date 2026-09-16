@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Map;
@@ -185,6 +186,21 @@ public class FinanceService {
     private BigDecimal sum(TransactionType type, LocalDate from, LocalDate to) {
         BigDecimal total = transactionMapper.sumAmount(type.name(), from, to);
         return total == null ? BigDecimal.ZERO : total;
+    }
+
+    /**
+     * 指定月份的收入与支出合计。
+     * 给 AI 助手用——它需要上个月的数字才能回答「比上个月多花多少」这类问题。
+     */
+    public MonthAmounts monthAmounts(YearMonth month) {
+        LocalDate from = month.atDay(1);
+        LocalDate to = month.atEndOfMonth();
+        return new MonthAmounts(month.toString(),
+                sum(TransactionType.INCOME, from, to),
+                sum(TransactionType.EXPENSE, from, to));
+    }
+
+    public record MonthAmounts(String month, BigDecimal income, BigDecimal expense) {
     }
 
     // ---------------- 内部 ----------------

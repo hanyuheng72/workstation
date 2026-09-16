@@ -13,7 +13,8 @@ import { useAsync } from '@/hooks/useAsync'
 import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/utils/cn'
 import { formatMonthDay } from '@/utils/format'
-import type { TaskType, TaskVO } from '@/types/domain'
+import { occurrenceToTask } from '@/utils/task'
+import type { TaskVO } from '@/types/domain'
 
 type Tab = 'TODAY' | 'LONG_TERM'
 
@@ -326,33 +327,4 @@ export function TaskPage() {
       />
     </>
   )
-}
-
-/** 今日任务的实例转成编辑表单需要的形状 */
-function occurrenceToTask(item: {
-  taskId: number
-  title: string
-  description: string | null
-  taskType: TaskType
-  priority: number
-  occurDate: string
-  recurrenceType: TaskVO['recurrenceType']
-  status: TaskVO['status']
-  recurring: boolean
-}): TaskVO {
-  return {
-    id: item.taskId,
-    title: item.title,
-    description: item.description,
-    taskType: item.taskType,
-    priority: item.priority,
-    planDate: item.occurDate,
-    dueDate: item.taskType === 'LONG_TERM' ? item.occurDate : null,
-    recurrenceType: item.recurrenceType,
-    recurrenceInterval: 1,
-    recurrenceEndDate: null,
-    status: item.status,
-    recurring: item.recurring,
-    anchorDate: item.occurDate,
-  }
 }
