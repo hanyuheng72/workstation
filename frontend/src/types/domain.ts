@@ -387,3 +387,53 @@ export interface AiMemoryVO {
   source: string
   createdAt: string | null
 }
+
+// ---------- 自习室 ----------
+
+export type FocusStatus = 'RUNNING' | 'PAUSED' | 'SUCCESS' | 'FAILED'
+export type FailReason = 'PAUSE_EXHAUSTED' | 'ABANDONED'
+
+export interface FocusSessionVO {
+  id: number
+  sessionDate: string
+  subject: string
+  plannedMinutes: number
+  status: FocusStatus
+  failReason: FailReason | null
+  startedAt: string
+  endedAt: string | null
+  /** 那一次暂停机会是否已用掉；用过之后暂停按钮就变成「再按即失败」 */
+  pauseUsed: boolean
+  pausedSeconds: number
+  /** 学完了但没走满设定时长。一样算成功，只是记录上分得出来 */
+  endedEarly: boolean
+  /** 真正专注的秒数。进行中时是 0，收尾之后才有值，上限是设定时长 */
+  actualSeconds: number
+  /** 服务端按真实时钟算好的剩余秒数，前端只负责把它画出来 */
+  remainingSeconds: number
+}
+
+export interface FocusStartRequest {
+  subject: string
+  plannedMinutes: number
+}
+
+export interface DailyFocusVO {
+  date: string
+  minutes: number
+  successCount: number
+  failCount: number
+}
+
+export interface FocusStatsVO {
+  todayMinutes: number
+  todaySuccessCount: number
+  todayFailCount: number
+  totalMinutes: number
+  totalSuccessCount: number
+  totalFailCount: number
+  /** 已结束的场次里成功占的百分比；一场都没结束时为 0 */
+  successRate: number
+  /** 最近 30 天，没学的那天是 0；一场都没有时为空数组 */
+  daily: DailyFocusVO[]
+}

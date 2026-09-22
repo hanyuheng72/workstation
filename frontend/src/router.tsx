@@ -34,6 +34,9 @@ const SettingsPage = lazy(() =>
 const AiChatPage = lazy(() =>
   import('@/pages/Ai/AiChatPage').then((m) => ({ default: m.AiChatPage })),
 )
+const FocusRoomPage = lazy(() =>
+  import('@/pages/Focus/FocusRoomPage').then((m) => ({ default: m.FocusRoomPage })),
+)
 
 /** 登录态还没确认时先显示载入中，避免闪一下登录页又跳回来 */
 function RequireAuth() {
@@ -81,6 +84,8 @@ export const router = createBrowserRouter([
           { path: '/finance', element: withSuspense(<FinancePage />) },
           { path: '/tasks', element: withSuspense(<TaskPage />) },
           { path: '/tasks/calendar', element: withSuspense(<TaskCalendarPage />) },
+          // 自习室不占底部导航位，从首页右上角进
+          { path: '/focus', element: withSuspense(<FocusRoomPage />) },
           { path: '/ai', element: withSuspense(<AiChatPage />) },
           { path: '/settings', element: withSuspense(<SettingsPage />) },
           { path: '*', element: <Navigate to="/" replace /> },

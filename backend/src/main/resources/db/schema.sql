@@ -6,7 +6,7 @@
 --   本机：先跑 00-create-database.sql
 --   云上：在服务商控制台里建好库，再用 -D workstation 连过来跑本脚本
 --
--- 共 14 张表。本脚本可重复执行（CREATE TABLE IF NOT EXISTS），
+-- 共 15 张表。本脚本可重复执行（CREATE TABLE IF NOT EXISTS），
 -- 已有表不会被改动也不会丢数据，所以升级版本时直接重跑本脚本即可补上新表。
 -- ============================================================
 
@@ -274,3 +274,66 @@ CREATE TABLE IF NOT EXISTS `ai_message` (
     CONSTRAINT `fk_message_conversation` FOREIGN KEY (`conversation_id`)
         REFERENCES `ai_conversation` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI 消息';
+
+-- ------------------------------------------------------------
+-- 15. focus_session — 自习室：一次专注
+--     状态机（由服务端强制，前端只负责显示）：
+--       RUNNING --pause(首次)--------> PAUSED --resume--> RUNNING
+--       RUNNING --pause(机会已用)-----> FAILED(PAUSE_EXHAUSTED)
+--       RUNNING --complete(时间走满)--> SUCCESS
+--       RUNNING --finish-early-------> SUCCESS，ended_early=1（学完了但没到时间）
+--       RUNNING|PAUSED --abandon------> FAILED(ABANDONED)
+--
+--     倒计时的权威在服务端：started_at 由服务端落库，complete 会校验
+--     真实时钟是否已经走满 planned_minutes + paused_seconds，前端改不了时间。
+--     「每日专注时长」只累加 SUCCESS 场次的 actual_seconds——提前结束的场次
+--     记的是真正坐住的那段，不是当初设定的时长，否则这个数字就是假的。
+--     独立表，不与其他表建外键。
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `focus_session` (
+    `id`              BIGINT       NOT NULL AUTO_INCREMENT,
+    `session_date`    DATE         NOT NULL COMMENT '开始那天，创建时定死，每日统计按它分组',
+    `subject`         VARCHAR(100) NOT NULL COMMENT '这一场要学的东西',
+    `planned_minutes` INT          NOT NULL COMMENT '设定的时长（分钟）',
+    `status`          ENUM('RUNNING','PAUSED','SUCCESS','FAILED') NOT NULL DEFAULT 'RUNNING',
+    `fail_reason`     ENUM('PAUSE_EXHAUSTED','ABANDONED') DEFAULT NULL COMMENT '仅 FAILED 时有值',
+    `started_at`      DATETIME     NOT NULL COMMENT '开始时刻，倒计时基准',
+    `ended_at`        DATETIME     DEFAULT NULL,
+    `pause_used`      TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '那一次暂停是否已用掉',
+    `paused_at`       DATETIME     DEFAULT NULL COMMENT '当前这轮暂停的起始时刻，续跑时清空',
+    `paused_seconds`  INT          NOT NULL DEFAULT 0 COMMENT '累计暂停秒数，续算剩余时间要加回来',
+    `ended_early`     TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1=提前结束，没走满设定时长也算成功',
+    `actual_seconds`  INT          NOT NULL DEFAULT 0 COMMENT '真正专注的秒数，已扣掉暂停；上限是设定时长',
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_session_date` (`session_date`, `status`),
+    KEY `idx_status` (`status`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '自习室专注场次';
+
+-- ------------------------------------------------------------
+-- 给已有的库补列。
+--
+-- 新装的库用上面的建表语句就够了；这一段是为了让文件开头那句
+-- 「重跑本脚本即可」对已有库也成立。先查 information_schema，
+-- 缺列才执行 ALTER，所以重复跑不会报 Duplicate column。
+-- 以后再给别的表加列，照这个写法加一段即可。
+-- ------------------------------------------------------------
+SET @missing_focus_column := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'focus_session'
+      AND COLUMN_NAME = 'ended_early'
+);
+
+SET @focus_upgrade := IF(@missing_focus_column = 0,
+    'ALTER TABLE `focus_session`
+        ADD COLUMN `ended_early` TINYINT(1) NOT NULL DEFAULT 0
+            COMMENT ''1=提前结束，没走满设定时长也算成功'' AFTER `paused_seconds`,
+        ADD COLUMN `actual_seconds` INT NOT NULL DEFAULT 0
+            COMMENT ''真正专注的秒数，已扣掉暂停；上限是设定时长'' AFTER `ended_early`',
+    'DO 0');
+
+PREPARE focus_upgrade FROM @focus_upgrade;
+EXECUTE focus_upgrade;
+DEALLOCATE PREPARE focus_upgrade;

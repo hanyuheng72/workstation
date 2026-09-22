@@ -10,6 +10,8 @@ export interface CountPoint {
 interface BarSingleProps {
   points: CountPoint[]
   unit?: string
+  /** 单位与提示语里那条序列的名字。默认「次数」，专注时长这类用它改成「专注」 */
+  seriesName?: string
 }
 
 const GRID = 'var(--app-viz-grid)'
@@ -17,7 +19,7 @@ const AXIS_INK = 'var(--app-fg-subtle)'
 const BAR = 'var(--app-primary)'
 
 /** 单序列柱状图。只有一条序列，一个颜色，不需要图例。 */
-export function BarSingle({ points, unit = '' }: BarSingleProps) {
+export function BarSingle({ points, unit = '', seriesName = '次数' }: BarSingleProps) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -45,7 +47,7 @@ export function BarSingle({ points, unit = '' }: BarSingleProps) {
               <ChartTooltip
                 title={String(label)}
                 rows={[
-                  { label: '次数', value: `${payload[0].value}${unit}`, color: BAR },
+                  { label: seriesName, value: `${payload[0].value}${unit}`, color: BAR },
                 ]}
               />
             )

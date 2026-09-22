@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Coins, Dumbbell, Scale, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Check, Coins, Dumbbell, Scale, Timer, Wallet, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { IconWell } from '@/components/ui/IconWell'
 import { SplashScreen } from '@/components/ui/SplashScreen'
@@ -70,6 +70,17 @@ export function DashboardPage() {
             <span className="tabular">{now.getFullYear()}</span>
           </p>
         </div>
+
+        {/* 自习室的入口。它和「任务」一样不占底部导航的位置，
+            所以给它在报头右上角留一个角——这是全页唯一的入口。 */}
+        <Link
+          to="/focus"
+          aria-label="自习室"
+          className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-panel bg-surface px-3.5 text-[13px] font-medium text-fg-muted shadow-raised-xs neu-pressable"
+        >
+          <Timer size={16} />
+          自习室
+        </Link>
       </header>
 
       {overview.loading && !data ? (
